@@ -1,9 +1,17 @@
 package main
 
-import "log/slog"
+import (
+	"github.com/sounishnath003/url-shortner-service-golang/internal/core"
+	"github.com/sounishnath003/url-shortner-service-golang/internal/server"
+)
 
+var (
+	version = "0.0.1"
+)
 
 func main() {
-	slog.Info("Hello, World!")
-	slog.Info("Hello", "value", "World!")
+	co := core.InitCore()
+
+	server := server.NewServer(co)
+	panic(server.Run())
 }

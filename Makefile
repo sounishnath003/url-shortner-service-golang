@@ -7,6 +7,9 @@ build:
 run: build
 	./bin/$(AppName)
 
+db:
+	docker-compose -f docker.compose.yaml up --build
+
 docker-build:
 	docker images
 	docker rmi -f $(AppName)
