@@ -2,14 +2,21 @@ package server
 
 import (
 	"net/http"
+	"os"
 	"time"
 )
 
 // HealthHandler works as a health check endpoint for the api.
 func HealthHandler(w http.ResponseWriter, r *http.Request) {
+	hostname, err := os.Hostname()
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, err)
+	}
+
 	WriteJson(w, http.StatusOK, map[string]any{
 		"status":    "OK",
 		"message":   "api services are normal",
+		"hostname":  hostname,
 		"timestamp": time.Now(),
 	})
 }
