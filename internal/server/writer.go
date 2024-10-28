@@ -12,8 +12,8 @@ type ApiResponse struct {
 }
 
 func WriteJson(w http.ResponseWriter, status int, data interface{}) {
-	w.WriteHeader(status)
 	w.Header().Add("Content-Type", "application/json, charset=utf-8")
+	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(ApiResponse{
 		Data:   data,
 		Status: status,
@@ -21,8 +21,8 @@ func WriteJson(w http.ResponseWriter, status int, data interface{}) {
 }
 
 func WriteError(w http.ResponseWriter, status int, err error) {
-	w.WriteHeader(status)
 	w.Header().Add("Content-Type", "application/json, charset=utf-8")
+	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(ApiResponse{
 		Err:    err.Error(),
 		Status: status,

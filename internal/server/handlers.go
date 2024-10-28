@@ -9,8 +9,10 @@ import (
 // HealthHandler works as a health check endpoint for the api.
 func HealthHandler(w http.ResponseWriter, r *http.Request) {
 	hostname, err := os.Hostname()
+	// Handle err.
 	if err != nil {
 		WriteError(w, http.StatusInternalServerError, err)
+		return
 	}
 
 	WriteJson(w, http.StatusOK, map[string]any{
@@ -21,12 +23,12 @@ func HealthHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// GenerateUrlShortenerV1Handler for generating the shorten url from the body provided.
+// GenerateUrlShortenerV1Handler (v1) for generating the shorten url from the body provided.
 func GenerateUrlShortenerV1Handler(w http.ResponseWriter, r *http.Request) {
 	WriteJson(w, http.StatusOK, "URL has been shorten")
 }
 
-// GetShortenUrlV1Handler gets the shorten url from the url provided in the path param.
+// GetShortenUrlV1Handler (v1) gets the shorten url from the url provided in the path param.
 func GetShortenUrlV1Handler(w http.ResponseWriter, r *http.Request) {
 	WriteJson(w, http.StatusOK, "Get shorten url")
 }
