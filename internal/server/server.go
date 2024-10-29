@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/sounishnath003/url-shortner-service-golang/internal/core"
+	"github.com/sounishnath003/url-shortner-service-golang/internal/handlers"
 	v1 "github.com/sounishnath003/url-shortner-service-golang/internal/handlers/v1"
 	"golang.org/x/time/rate"
 )
@@ -32,7 +34,7 @@ func (s *Server) Run() error {
 	mux := http.NewServeMux()
 
 	// Adding the health endpoint.
-	mux.HandleFunc("/healthy", v1.HealthHandler)
+	mux.HandleFunc("/healthy", HealthHandler)
 
 	// Groupping versioning.
 	mux.HandleFunc("POST /api/v1/shorten", v1.GenerateUrlShortenerV1Handler)
@@ -150,4 +152,24 @@ func (s *Server) CustomReqContextMiddleware(next http.Handler) http.HandlerFunc 
 		ctx := context.WithValue(r.Context(), "co", s.co)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	}
+}
+
+// HealthHandler works as a health check endpoint for the api.
+func HealthHandler(w http.ResponseWriter, r *http.Request) {
+	co := r.Context().Value("co").(*core.Core)
+
+	hostname, err := os.Hostname()
+	// Handle err.
+	if err != nil {
+		handlers.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	handlers.WriteJson(w, http.StatusOK, map[string]any{
+		"status":    "OK",
+		"version":   co.Version,
+		"message":   "api services are normal",
+		"hostname":  hostname,
+		"timestamp": time.Now(),
+	})
 }

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/sounishnath003/url-shortner-service-golang/internal/core"
+	"github.com/sounishnath003/url-shortner-service-golang/internal/handlers"
 )
 
 // HealthHandler works as a health check endpoint for the api.
@@ -16,11 +17,11 @@ func HealthHandler(w http.ResponseWriter, r *http.Request) {
 	hostname, err := os.Hostname()
 	// Handle err.
 	if err != nil {
-		WriteError(w, http.StatusInternalServerError, err)
+		handlers.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	WriteJson(w, http.StatusOK, map[string]any{
+	handlers.WriteJson(w, http.StatusOK, map[string]any{
 		"status":    "OK",
 		"version":   co.Version,
 		"message":   "api services are normal",
@@ -31,25 +32,33 @@ func HealthHandler(w http.ResponseWriter, r *http.Request) {
 
 // GenerateUrlShortenerV1Handler (v1) for generating the shorten url from the body provided.
 func GenerateUrlShortenerV1Handler(w http.ResponseWriter, r *http.Request) {
-	// Grab from body
+	// Grab from body.
 	var url CreateUShortenUrlDto
 	json.NewDecoder(r.Body).Decode(&url)
 	defer r.Body.Close()
 
-	short, err := GetMd5Hash(&url)
+	// Apply sanitize checks on the url.
+	err := SanitizeURLChecks(&url)
 	if err != nil {
-		WriteError(w, http.StatusInternalServerError, err)
+		handlers.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	WriteJson(w, http.StatusOK, map[string]any{
+	short, err := GetMd5Hash(&url)
+	if err != nil {
+		handlers.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	handlers.WriteJson(w, http.StatusOK, map[string]any{
 		"status":   "OK",
 		"shortUrl": short,
+		"O":        url,
 		"message":  "short url generated",
 	})
 }
 
 // GetShortenUrlV1Handler (v1) gets the shorten url from the url provided in the path param.
 func GetShortenUrlV1Handler(w http.ResponseWriter, r *http.Request) {
-	WriteJson(w, http.StatusOK, "Get shorten url")
+	handlers.WriteJson(w, http.StatusOK, "Get shorten url")
 }

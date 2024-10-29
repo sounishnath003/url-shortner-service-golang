@@ -3,7 +3,7 @@ package v1
 import "time"
 
 type CreateUShortenUrlDto struct {
-	LongUrl     string    `json:"longUrl"`
-	CustomAlias string    `json:"customAlias"`
-	ExpiryDate  time.Time `json:"expiryDate"`
+	OriginalUrl string    `json:"original_url"`
+	CustomAlias string    `json:"custom_alias"`
+	ExpiryDate  time.Time `json:"expiry_date"`
 }

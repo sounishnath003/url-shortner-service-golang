@@ -8,11 +8,14 @@ import (
 	"github.com/knadh/goyesql/v2"
 	_ "github.com/lib/pq"
 
-	"github.com/sounishnath003/url-shortner-service-golang/cmd/utils"
+	"github.com/sounishnath003/url-shortner-service-golang/internal/utils"
 )
 
 // InitCore helps to initialize all the necessary configuration
 // to run the backend services.
+//
+// This handles all the heavy workloads of initiatizes the dependencies into
+// single construct reducing the error prone and checks all params before the WP.
 func InitCore() *Core {
 
 	co := &Core{
@@ -33,7 +36,13 @@ func InitCore() *Core {
 
 	co.db = db
 
-	co.parseSQLQueries()
+	stmts, err := co.prepareSQLQueryStmts()
+	if err != nil {
+		co.Lo.Error("Error preparing the sql statements", "error", err)
+		panic(err)
+	}
+
+	co.QueryStmts = stmts
 
 	return co
 }
@@ -41,10 +50,11 @@ func InitCore() *Core {
 // Core struct holds up all the configuration required.
 // It helps the application to run smoothly without fail.
 type Core struct {
-	Port      int
-	Version   string
-	JwtSecret string
-	Lo        *slog.Logger
+	Port       int
+	Version    string
+	JwtSecret  string
+	QueryStmts *UrlShorterServiceQueries
+	Lo         *slog.Logger
 
 	dbType string
 	dsn    string
@@ -61,7 +71,7 @@ func (co *Core) initDatabase() (*sql.DB, error) {
 	}
 	// Set the connections defaults.
 	db.SetMaxIdleConns(10)
-	db.SetMaxIdleConns(10)
+	db.SetConnMaxLifetime(10 * time.Second)
 	db.SetConnMaxIdleTime(100 * time.Second)
 
 	// Perform a ping check.
@@ -74,10 +84,15 @@ func (co *Core) initDatabase() (*sql.DB, error) {
 	return db, nil
 }
 
-func (co *Core) parseSQLQueries() {
+// prepareSQLQueryStmts helps to prepare the raw sql queries.
+// Which handles and parses the .sql file and return the required SQL
+// statements by the backend service to run.
+//
+// It pre-loads the query, no bottleneck to only assign the args to be executed.
+func (co *Core) prepareSQLQueryStmts() (*UrlShorterServiceQueries, error) {
 	queries := goyesql.MustParseFile("queries.sql")
-
-	for name, query := range queries {
-		co.Lo.Info("query", "name", name, "query", query)
-	}
+	var queryStmts UrlShorterServiceQueries
+	// prepares a given set of Queries and assigns the resulting *sql.Stmt statements to the fields
+	err := goyesql.ScanToStruct(&queryStmts, queries, co.db)
+	return &queryStmts, err
 }
