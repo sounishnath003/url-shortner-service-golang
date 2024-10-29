@@ -7,6 +7,7 @@ type Url struct {
 	OriginalURL  string    `json:"original_url"`
 	ShortURL     string    `json:"short_url"`
 	Hits         int       `json:"hits"`
+	UserID       int       `json:"user_id"`
 	CreatedAt    time.Time `json:"created_at"`
-	ExpirationAr time.Time `json:"expiration_at"`
+	ExpirationAt time.Time `json:"expiration_at"`
 }

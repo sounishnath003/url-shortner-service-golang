@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"encoding/json"
 	"net/http"
 	"os"
 	"time"
@@ -30,7 +31,22 @@ func HealthHandler(w http.ResponseWriter, r *http.Request) {
 
 // GenerateUrlShortenerV1Handler (v1) for generating the shorten url from the body provided.
 func GenerateUrlShortenerV1Handler(w http.ResponseWriter, r *http.Request) {
-	WriteJson(w, http.StatusOK, "URL has been shorten")
+	// Grab from body
+	var url CreateUShortenUrlDto
+	json.NewDecoder(r.Body).Decode(&url)
+	defer r.Body.Close()
+
+	short, err := GetMd5Hash(&url)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	WriteJson(w, http.StatusOK, map[string]any{
+		"status":   "OK",
+		"shortUrl": short,
+		"message":  "short url generated",
+	})
 }
 
 // GetShortenUrlV1Handler (v1) gets the shorten url from the url provided in the path param.

@@ -123,6 +123,7 @@ func (s *Server) RateLimiterMiddleware(next http.Handler) http.HandlerFunc {
 			s.co.Lo.Info("client", ip, "has been throttle due to too many requests", "lastSeen", clients[ip].lastSeen)
 
 			w.Header().Add("X-Rate-Limiter", time.Now().Format(time.RFC3339Nano))
+			w.Header().Add("Content-Type", "application/json, charset=utf-8")
 			w.WriteHeader(http.StatusTooManyRequests)
 			json.NewEncoder(w).Encode(map[string]string{
 				"error":    "rate limit exceeded",
