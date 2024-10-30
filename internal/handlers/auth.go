@@ -11,11 +11,62 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// UserLoginDto struct
+//
+// This struct represents the data required to login a user.
+//
+// - Email: The user's email address
+// - Password: The user's password
+//
+// Example:
+//
+// ```json
+//
+//	{
+//	  "email": "john.doe@example.com",
+//	  "password": "password123"
+//	}
+//
+//
 type UserLoginDto struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
+// LoginHandler handles the user login request.
+//
+// This function handles the user login request and generates a JWT token for the user.
+//
+// The request body should contain the following fields:
+//
+// - email: The user's email address
+// - password: The user's password
+//
+// If the request is successful, the response will contain the following fields:
+//
+// - token: The JWT token for the user
+//
+// If the request fails, the response will contain an error message.
+//
+// Example Request:
+//
+// ```json
+//
+//	{
+//	  "email": "john.doe@example.com",
+//	  "password": "password123"
+//	}
+//
+// ```
+//
+// Example Response:
+//
+// ```json
+//
+//	{
+//	  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJ1cmwtc2hvcnRuZXItc2VydmljZSIsInN1YiI6ImFkbWluQGV4YW1wbGUuY29tIiwiYXVkIjpbInVzZXIiLCJ1cmwtc2hvcnRuZXItc2VydmljZSJdLCJpYXQiOjE2NzY0MjYzNjcsImV4cCI6MTY3NjUyMjM2N30.Y293464856485648564856485648564856485648564856485648564856485648564856485648564856485648564856485648564856485648564856485648564856485648564856485648564
+//
+// ```
 func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	// Grab the context
 	co := r.Context().Value("co").(*core.Core)
@@ -40,12 +91,64 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// CreateNewUserDto struct
+//
+// This struct represents the data required to create a new user.
+//
+// - Name: The user's name
+// - Email: The user's email address
+// - Password: The user's password
+//
+// Example:
+//
+// ```json
+//
+//	{
+//	  "name": "John Doe",
+//	  "email": "john.doe@example.com",
+//	  "password": "password123"
+//	}
 type CreateNewUserDto struct {
 	Name     string `json:"name"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
+// SignupHandler handles the user signup request.
+//
+// This function handles the user signup request and creates a new user in the database.
+// It also generates a JWT token for the user and returns it in the response.
+//
+// The request body should contain the following fields:
+//
+// - name: The user's name
+// - email: The user's email address
+// - password: The user's password
+//
+// If the request is successful, the response will contain the following fields:
+//
+// - token: The JWT token for the user
+//
+// If the request fails, the response will contain an error message.
+//
+// Example Request:
+//
+// ```json
+//
+//	{
+//	  "name": "John Doe",
+//	  "email": "john.doe@example.com",
+//	  "password": "password123"
+//	}
+//
+// ```
+//
+// Example Response:
+//
+// ```json
+//
+//	{
+//	  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJ1cmwtc2hvcnRuZXItc2VydmljZSIsInN1YiI6ImFkbWluQGV4YW1wbGUuY29tIiwiYXVkIjpbInVzZXIiLCJ1cmwtc2hvcnRuZXItc2VydmljZSJdLCJpYXQiOjE2NzY0MjYzNjcsImV4cCI6MTY3NjUyMjM2N30.Y293464856485648564856485648564856485648564856485648564856485648564856485648564856485648564856485648564856485648564856485648564856485648564856485648564
 func SignupHandler(w http.ResponseWriter, r *http.Request) {
 	// Grab the context
 	co := r.Context().Value("co").(*core.Core)

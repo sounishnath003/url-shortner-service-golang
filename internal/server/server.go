@@ -3,13 +3,16 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/sounishnath003/url-shortner-service-golang/internal/core"
 	"github.com/sounishnath003/url-shortner-service-golang/internal/handlers"
 	v1 "github.com/sounishnath003/url-shortner-service-golang/internal/handlers/v1"
@@ -41,7 +44,7 @@ func (s *Server) Run() error {
 	mux.HandleFunc("POST /signup", handlers.SignupHandler)
 
 	// Groupping versioning.
-	mux.HandleFunc("POST /api/v1/shorten", v1.GenerateUrlShortenerV1Handler)
+	mux.HandleFunc("POST /api/v1/shorten", s.AuthGuardMiddleware(v1.GenerateUrlShortenerV1Handler))
 	mux.HandleFunc("GET /api/v1/{shortenUrl}", v1.GetShortenUrlV1Handler)
 
 	hostAddr := fmt.Sprintf("http://0.0.0.0:%d", s.port)
@@ -80,17 +83,17 @@ func (s *Server) RateLimiterMiddleware(next http.Handler) http.HandlerFunc {
 		for {
 			// Add delay of running every minute.
 			time.Sleep(1 * time.Minute)
+			mu.Lock()
 			for ip, client := range clients {
 				// Allowing every client request 3 minute window
 				// If the new request arrives more than 3 minute from the client.
 				// We are not going to block / hence delete from the inmemory map
 				// Note: can use redis here to make it distributed.
 				if time.Since(client.lastSeen) > 3*time.Minute {
-					mu.Lock()
 					delete(clients, ip)
-					mu.Unlock()
 				}
 			}
+			mu.Unlock()
 		}
 	}()
 
@@ -176,4 +179,75 @@ func HealthHandler(w http.ResponseWriter, r *http.Request) {
 		"hostname":  hostname,
 		"timestamp": time.Now(),
 	})
+}
+
+// AuthGuardMiddleware helps to authenticate the request.
+// It checks the authorization header and verifies the JWT token.
+// If the token is valid, the request is allowed to proceed.
+// If the token is invalid, the request is rejected.
+func (s *Server) AuthGuardMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		s.co.Lo.Info("inside auth middleware guard")
+
+		authorization := r.Header.Get("Authorization")
+		if len(authorization) < 5 {
+			handlers.WriteError(w, http.StatusUnauthorized, errors.New("Unauthorized"))
+			return
+		}
+
+		splits := strings.Split(authorization, " ")
+
+		if splits[0] != "Bearer" || len(splits[1]) < 5 {
+			handlers.WriteError(w, http.StatusUnauthorized, errors.New("Unauthorized"))
+			return
+		}
+
+		token := splits[1]
+		s.co.Lo.Info("auth.middleware checks", "remoteIp", r.RemoteAddr, "isAuthorized", true)
+
+		foundEmail, err := s.ClaimAndVerifyJwtToken(token)
+		if err != nil {
+			handlers.WriteError(w, http.StatusUnauthorized, err)
+			return
+		}
+		// Set the request context with user
+		ctx := context.WithValue(r.Context(), "userEmail", foundEmail)
+		s.co.Lo.Info("checks completed auth middleware guard")
+		next.ServeHTTP(w, r.WithContext(ctx))
+	}
+}
+
+// ClaimAndVerifyJwtToken helps to verify the JWT token.
+// It checks the token signature and expiry time.
+// If the token is valid, it returns true.
+// If the token is invalid, it returns false.
+func (s *Server) ClaimAndVerifyJwtToken(token string) (string, error) {
+	// Parse the JWT token.
+	parsedToken, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
+		return []byte(s.co.JwtSecret), nil
+	})
+
+	if err != nil {
+		return "", err
+	}
+
+	// Check if the token is valid.
+	if !parsedToken.Valid {
+		return "", errors.New("Unauthorized")
+	}
+
+	// Check in database with the parsed token
+	email, err := parsedToken.Claims.GetSubject()
+	if err != nil {
+		return "", errors.New("Unauthorized")
+	}
+	foundEmail := ""
+	foundPass := ""
+	s.co.QueryStmts.GetUserByEmail.QueryRow(email).Scan(&foundEmail, &foundPass)
+	if foundEmail == "" || foundPass == "" {
+		return "", errors.New("Unauthorized")
+	}
+	s.co.Lo.Info("user has been verified and authorized", "foundEmail", foundEmail)
+
+	return foundEmail, nil
 }
