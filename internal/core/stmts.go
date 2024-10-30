@@ -9,5 +9,6 @@ type UrlShorterServiceQueries struct {
 	CreateNewUser         *sql.Stmt `query:"CreateNewUser"`
 	CreateShortUrlQuery   *sql.Stmt `query:"CreateShortUrlQuery"`
 	GetShortUrlQuery      *sql.Stmt `query:"GetShortUrlQuery"`
+	IncrUrlHitCountQuery  *sql.Stmt `query:"IncrUrlHitCountQuery"`
 	GetIncrementalIDQuery *sql.Stmt `query:"GetIncrementalIDQuery"`
 }

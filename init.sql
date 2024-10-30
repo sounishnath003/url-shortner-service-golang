@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS url_mappings (
     user_id INT NOT NULL,
 	original_url VARCHAR(255) NOT NULL,
 	short_url VARCHAR(20) NOT NULL UNIQUE,
+    hit_count INT DEFAULT 0;
 	expiration_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -58,6 +59,16 @@ INSERT INTO users_url_mappings (UrlID, UserID) VALUES (4, 1);
 INSERT INTO users_url_mappings (UrlID, UserID) VALUES (5, 1);
 INSERT INTO users_url_mappings (UrlID, UserID) VALUES (6, 1);
 INSERT INTO users_url_mappings (UrlID, UserID) VALUES (7, 1);
+
+-- Url hits count
+CREATE TABLE IF NOT EXISTS urls_hit_count (
+    url_id INT PRIMARY KEY,
+    hit_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (url_id) REFERENCES url_mappings(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS urls_hit_count_url_id_idx ON urls_hit_count (url_id);
+
 
 
 -- Generate a incremental id generator

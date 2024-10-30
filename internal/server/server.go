@@ -44,8 +44,8 @@ func (s *Server) Run() error {
 	mux.HandleFunc("POST /signup", handlers.SignupHandler)
 
 	// Groupping versioning.
-	mux.HandleFunc("POST /api/v1/shorten", s.AuthGuardMiddleware(v1.GenerateUrlShortenerV1Handler))
-	mux.HandleFunc("GET /api/v1/{shortenUrl}", v1.GetShortenUrlV1Handler)
+	mux.HandleFunc("POST /api/v1/shorten", s.AuthGuardMiddleware(v1.GenerateUrlShortenerHandler))
+	mux.HandleFunc("GET /api/v1/{shortenUrl}", v1.GetShortenUrlHandler)
 
 	hostAddr := fmt.Sprintf("http://0.0.0.0:%d", s.port)
 	s.co.Lo.Info("server has been up and running", "on", hostAddr)

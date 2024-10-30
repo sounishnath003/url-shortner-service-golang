@@ -2,6 +2,7 @@ package v1
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -32,8 +33,8 @@ func HealthHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// GenerateUrlShortenerV1Handler (v1) for generating the shorten url from the body provided.
-func GenerateUrlShortenerV1Handler(w http.ResponseWriter, r *http.Request) {
+// GenerateUrlShortenerHandler (v1) for generating the shorten url from the body provided.
+func GenerateUrlShortenerHandler(w http.ResponseWriter, r *http.Request) {
 	// Grab from body.
 	var url CreateUShortenUrlDto
 	err := json.NewDecoder(r.Body).Decode(&url)
@@ -89,7 +90,34 @@ func GenerateUrlShortenerV1Handler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// GetShortenUrlV1Handler (v1) gets the shorten url from the url provided in the path param.
-func GetShortenUrlV1Handler(w http.ResponseWriter, r *http.Request) {
-	handlers.WriteJson(w, http.StatusOK, "Get shorten url")
+// GetShortenUrlHandler (v1) gets the shorten url from the url provided in the path param.
+func GetShortenUrlHandler(w http.ResponseWriter, r *http.Request) {
+	// Grab the shortUrl from param
+	shortUrl := r.URL.Path[len("/api/v1/"):]
+
+	// Grab core from context.
+	co := r.Context().Value("co").(*core.Core)
+
+	_, err := co.QueryStmts.IncrUrlHitCountQuery.Exec(shortUrl)
+	if err != nil {
+		handlers.WriteError(w, http.StatusNotFound, errors.New("No url found for the given shorten url"))
+		return
+	}
+
+	// Get the original url from the database.
+	var originalUrl string
+	var expirationAt time.Time
+
+	err = co.QueryStmts.GetShortUrlQuery.QueryRow(shortUrl).Scan(&originalUrl, &expirationAt)
+	if err != nil {
+		handlers.WriteError(w, http.StatusNotFound, errors.New("No url found for the given shorten url"))
+		return
+	}
+
+	if len(originalUrl) == 0 {
+		handlers.WriteError(w, http.StatusBadGateway, errors.New("short url has been expired. or url found."))
+	}
+
+	// Redirect to the original url.
+	http.Redirect(w, r, originalUrl, http.StatusFound)
 }
