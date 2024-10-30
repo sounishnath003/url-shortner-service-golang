@@ -30,3 +30,12 @@ select nextval('incr_id_generator_seq');
 SELECT DISTINCT short_url
 FROM url_mappings 
 WHERE expiration_at > CURRENT_TIMESTAMP;
+
+-- name: MostActiveHitsQuery
+SELECT original_url, short_url
+FROM url_mappings
+WHERE expiration_at > CURRENT_TIMESTAMP AND hit_count > (
+    SELECT AVG(hit_count) FROM url_mappings
+    WHERE expiration_at > CURRENT_TIMESTAMP AND hit_count > 0
+)
+ORDER BY hit_count DESC;

@@ -22,8 +22,16 @@ func GetShortenUrlHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check the URL is present in cache.
+	originalUrl, err := co.FindOriginalUrlFromCache(shortUrl)
+	if err == nil && len(originalUrl) > 0 {
+		co.Lo.Info("[CACHE_HIT]", "originalUrl", originalUrl, "shortUrl", shortUrl)
+		http.Redirect(w, r, originalUrl, http.StatusFound)
+		return
+	}
+	co.Lo.Info("[CACHE_MISS]", "originalUrl", originalUrl, "shortUrl", shortUrl)
+
 	// Get the original url from the database.
-	var originalUrl string
 	var expirationAt time.Time
 
 	err = co.QueryStmts.GetShortUrlQuery.QueryRow(shortUrl).Scan(&originalUrl, &expirationAt)

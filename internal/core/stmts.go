@@ -12,4 +12,5 @@ type UrlShorterServiceQueries struct {
 	IncrUrlHitCountQuery     *sql.Stmt `query:"IncrUrlHitCountQuery"`
 	GetIncrementalIDQuery    *sql.Stmt `query:"GetIncrementalIDQuery"`
 	GetAllShortUrlAliasQuery *sql.Stmt `query:"GetAllShortUrlAliasQuery"`
+	MostActiveHitsQuery      *sql.Stmt `query:"MostActiveHitsQuery"`
 }

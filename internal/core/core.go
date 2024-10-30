@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/go-redis/redis/v8"
 	"github.com/knadh/goyesql/v2"
 	_ "github.com/lib/pq"
 
@@ -27,7 +28,12 @@ func InitCore() *Core {
 		dbType:      utils.GetEnv("DB_DRIVER", "postgres").(string),
 		dsn:         utils.GetEnv("DSN", "postgres://root:root@127.0.0.1:5432/postgres?sslmode=disable").(string),
 		BloomFilter: bloom.NewBloomFilter(10000000),
-		Lo:          slog.Default(),
+
+		RedisClientAddr: utils.GetEnv(
+			"REDIS_CLIENT_ADDR",
+			"localhost:6379",
+		).(string),
+		Lo: slog.Default(),
 	}
 
 	// Attach the db
@@ -38,6 +44,14 @@ func InitCore() *Core {
 	}
 
 	co.db = db
+
+	// Attach the redis client.
+	rdb, err := co.initRedisConf()
+	if err != nil {
+		co.Lo.Error("Error initializing redis client", "error", err)
+		panic(err)
+	}
+	co.rdb = rdb
 
 	stmts, err := co.prepareSQLQueryStmts()
 	if err != nil {
@@ -50,6 +64,7 @@ func InitCore() *Core {
 	// Load the bloom filter with the shortUrl alias.
 	// Runs in a separate go routine.
 	go co.PreloadBloomFilter()
+	go co.CacheShortOriginalUrls()
 
 	return co
 }
@@ -57,16 +72,18 @@ func InitCore() *Core {
 // Core struct holds up all the configuration required.
 // It helps the application to run smoothly without fail.
 type Core struct {
-	Port        int
-	Version     string
-	JwtSecret   string
-	QueryStmts  *UrlShorterServiceQueries
-	Lo          *slog.Logger
-	BloomFilter *bloom.BloomFilter
+	Port            int
+	Version         string
+	JwtSecret       string
+	QueryStmts      *UrlShorterServiceQueries
+	Lo              *slog.Logger
+	BloomFilter     *bloom.BloomFilter
+	RedisClientAddr string
 
 	dbType string
 	dsn    string
 	db     *sql.DB
+	rdb    *redis.Client
 }
 
 // initDatabase helps to instantiate a database connection.
@@ -90,6 +107,16 @@ func (co *Core) initDatabase() (*sql.DB, error) {
 	}
 	co.Lo.Info("database connection has been established successfully.")
 	return db, nil
+}
+
+func (co *Core) initRedisConf() (*redis.Client, error) {
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     co.RedisClientAddr,
+		Password: "",
+		DB:       0,
+	})
+
+	return rdb, nil
 }
 
 // prepareSQLQueryStmts helps to prepare the raw sql queries.
@@ -125,6 +152,43 @@ func (co *Core) PreloadBloomFilter() error {
 		co.BloomFilter.Add(shortUrl)
 	}
 	return nil
+}
+
+// CacheShortOriginalUrls helps to cache the short url and original url mappings into redis.
+// This is done to improve the performance of the GetOriginalUrlHandler.
+// This is an entire blocking infinite loop.
+//
+// caller must run it in separate go routine. As the alias will be huge distributed.
+func (co *Core) CacheShortOriginalUrls() error {
+
+	for {
+		rows, err := co.QueryStmts.MostActiveHitsQuery.Query()
+		if err != nil {
+			co.Lo.Info("an error occured", "error", err)
+			return err
+		}
+
+		for rows.Next() {
+			var originalUrl string
+			var shortUrl string
+
+			err = rows.Scan(&originalUrl, &shortUrl)
+			if err != nil {
+				co.Lo.Info("an error occured", "error", err)
+				return err
+			}
+
+			// Add in redis cache for 1 Hour eviction
+			err = co.rdb.Set(context.Background(), shortUrl, originalUrl, 1*time.Hour).Err()
+
+			co.Lo.Info("added to cache", "originalUrl", originalUrl, "shortUrl", shortUrl)
+		}
+		time.Sleep(1 * time.Minute)
+	}
+}
+
+func (co *Core) FindOriginalUrlFromCache(shortUrl string) (string, error) {
+	return co.rdb.Get(context.Background(), shortUrl).Result()
 }
 
 // CreateNewShortUrl helps to add a shortURL for the user.
