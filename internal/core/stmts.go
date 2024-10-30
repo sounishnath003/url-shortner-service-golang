@@ -6,6 +6,7 @@ import "database/sql"
 // to be executed and required by the backend service.
 type UrlShorterServiceQueries struct {
 	GetUserByEmail        *sql.Stmt `query:"GetUserByEmail"`
+	CreateNewUser         *sql.Stmt `query:"CreateNewUser"`
 	CreateShortUrlQuery   *sql.Stmt `query:"CreateShortUrlQuery"`
 	GetShortUrlQuery      *sql.Stmt `query:"GetShortUrlQuery"`
 	GetIncrementalIDQuery *sql.Stmt `query:"GetIncrementalIDQuery"`

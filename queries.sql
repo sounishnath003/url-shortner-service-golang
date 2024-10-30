@@ -4,6 +4,11 @@
 SELECT email, password 
 FROM  users WHERE LOWER(email) = LOWER($1);
 
+-- name: CreateNewUser
+INSERT INTO users
+(name, email, password) 
+VALUES ($1,$2,$3);
+
 -- name: CreateShortUrlQuery
 INSERT INTO url_mappings
 (original_url, short_url, expiration_at, user_id) 

@@ -29,7 +29,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Create JWT token for the user.
-	token, err := createJwtToken(co, user)
+	token, err := createJwtToken(co, user.Email, user.Password)
 	if err != nil {
 		WriteError(w, http.StatusUnauthorized, errors.New("username or password are incorrect"))
 		return
@@ -40,26 +40,45 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+type CreateNewUserDto struct {
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
 func SignupHandler(w http.ResponseWriter, r *http.Request) {
 	// Grab the context
 	co := r.Context().Value("co").(*core.Core)
 
-	var user UserLoginDto
+	var user CreateNewUserDto
 	json.NewDecoder(r.Body).Decode(&user)
 	defer r.Body.Close()
 
-	if user.Email == "" || user.Password == "" {
-		WriteError(w, http.StatusBadRequest, errors.New("invalid credentials"))
+	if user.Name == "" || user.Email == "" || user.Password == "" {
+		WriteError(w, http.StatusBadRequest, errors.New("required fields are not provided"))
 		return
 	}
-
-	token, err := createJwtToken(co, user)
+	// Generate a bcrypt hashed password
+	hashed, err := bcrypt.GenerateFromPassword([]byte(user.Password), 10)
 	if err != nil {
 		WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	// Register the user.
+	_, err = co.QueryStmts.CreateNewUser.Exec(user.Name, user.Email, hashed)
+	if err != nil {
+		WriteError(w, http.StatusBadRequest, errors.New("user already exists. or request is malformed"))
+		return
+	}
+
+	// Create JWT token for the user.
+	token, err := createJwtToken(co, user.Email, user.Password)
+	if err != nil {
+		WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
 	WriteJson(w, http.StatusOK, map[string]string{
 		"token": token,
 	})
@@ -68,18 +87,18 @@ func SignupHandler(w http.ResponseWriter, r *http.Request) {
 // createJwtToken helps to generate an access token for the user.
 //
 // JWT Token which validates the user credentials.
-func createJwtToken(co *core.Core, user UserLoginDto) (string, error) {
+func createJwtToken(co *core.Core, email, password string) (string, error) {
 	var userInDB UserLoginDto
 	// Check the user present in DB
-	co.QueryStmts.GetUserByEmail.QueryRow(user.Email).Scan(&userInDB.Email, &userInDB.Password)
-	co.Lo.Info("checking user exists", "email", user.Email)
+	co.QueryStmts.GetUserByEmail.QueryRow(email).Scan(&userInDB.Email, &userInDB.Password)
+	co.Lo.Info("checking user exists", "email", email)
 	// If no user found.
 	if userInDB.Email == "" {
 		return "", errors.New("username or password are incorrect")
 	}
 
 	// Perform the salted hashed password checks using bcrypt.
-	if err := bcrypt.CompareHashAndPassword([]byte(userInDB.Password), []byte(user.Password)); err != nil {
+	if err := bcrypt.CompareHashAndPassword([]byte(userInDB.Password), []byte(password)); err != nil {
 		return "", err
 	}
 
