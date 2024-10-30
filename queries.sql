@@ -1,5 +1,9 @@
 -- queries.sql
 
+-- name: GetUserByEmail
+SELECT email, password 
+FROM  users WHERE LOWER(email) = LOWER($1);
+
 -- name: CreateShortUrlQuery
 INSERT INTO url_mappings
 (original_url, short_url, expiration_at, user_id) 

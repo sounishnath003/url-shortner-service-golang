@@ -36,6 +36,10 @@ func (s *Server) Run() error {
 	// Adding the health endpoint.
 	mux.HandleFunc("/healthy", HealthHandler)
 
+	// Auth endpoints.
+	mux.HandleFunc("POST /login", handlers.LoginHandler)
+	mux.HandleFunc("POST /signup", handlers.SignupHandler)
+
 	// Groupping versioning.
 	mux.HandleFunc("POST /api/v1/shorten", v1.GenerateUrlShortenerV1Handler)
 	mux.HandleFunc("GET /api/v1/{shortenUrl}", v1.GetShortenUrlV1Handler)
