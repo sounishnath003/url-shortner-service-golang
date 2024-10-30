@@ -16,6 +16,7 @@ import (
 	"github.com/sounishnath003/url-shortner-service-golang/internal/core"
 	"github.com/sounishnath003/url-shortner-service-golang/internal/handlers"
 	v1 "github.com/sounishnath003/url-shortner-service-golang/internal/handlers/v1"
+	v2 "github.com/sounishnath003/url-shortner-service-golang/internal/handlers/v2"
 	"golang.org/x/time/rate"
 )
 
@@ -37,7 +38,7 @@ func (s *Server) Run() error {
 	mux := http.NewServeMux()
 
 	// Adding the health endpoint.
-	mux.HandleFunc("/healthy", HealthHandler)
+	mux.HandleFunc("/api/healthy", HealthHandler)
 
 	// Auth endpoints.
 	mux.HandleFunc("POST /login", handlers.LoginHandler)
@@ -45,7 +46,13 @@ func (s *Server) Run() error {
 
 	// Groupping versioning.
 	mux.HandleFunc("POST /api/v1/shorten", s.AuthGuardMiddleware(v1.GenerateUrlShortenerHandler))
-	mux.HandleFunc("GET /api/v1/{shortenUrl}", v1.GetShortenUrlHandler)
+
+	// Groupping /api/v2 endpoints.
+	mux.HandleFunc("POST /api/v2/shorten", s.AuthGuardMiddleware(v2.GenerateUrlShortenerHandler))
+
+	// Required routes for the services
+	mux.HandleFunc("GET /{shortenUrl}", handlers.GetShortenUrlHandler)
+	mux.HandleFunc("GET /api/check-alias/{customAlias}", s.AuthGuardMiddleware(handlers.CustomAliasAvailabilityHandler))
 
 	hostAddr := fmt.Sprintf("http://0.0.0.0:%d", s.port)
 	s.co.Lo.Info("server has been up and running", "on", hostAddr)

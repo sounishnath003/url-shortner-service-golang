@@ -25,3 +25,8 @@ WHERE short_url = $1;
 
 -- name: GetIncrementalIDQuery
 select nextval('incr_id_generator_seq');
+
+-- name: GetAllShortUrlAliasQuery
+SELECT DISTINCT short_url
+FROM url_mappings 
+WHERE expiration_at > CURRENT_TIMESTAMP;

@@ -9,6 +9,7 @@ import (
 	"github.com/knadh/goyesql/v2"
 	_ "github.com/lib/pq"
 
+	"github.com/sounishnath003/url-shortner-service-golang/internal/bloom"
 	"github.com/sounishnath003/url-shortner-service-golang/internal/utils"
 )
 
@@ -20,12 +21,13 @@ import (
 func InitCore() *Core {
 
 	co := &Core{
-		Version:   "0.0.1",
-		Port:      utils.GetEnv("PORT", 3000).(int),
-		JwtSecret: utils.GetEnv("JWT_SECRET", "24C3bebd3c22f155e57b6d426d2e7dfEZX2@1564#!").(string),
-		dbType:    utils.GetEnv("DB_DRIVER", "postgres").(string),
-		dsn:       utils.GetEnv("DSN", "postgres://root:root@127.0.0.1:5432/postgres?sslmode=disable").(string),
-		Lo:        slog.Default(),
+		Version:     "0.0.1",
+		Port:        utils.GetEnv("PORT", 3000).(int),
+		JwtSecret:   utils.GetEnv("JWT_SECRET", "24C3bebd3c22f155e57b6d426d2e7dfEZX2@1564#!").(string),
+		dbType:      utils.GetEnv("DB_DRIVER", "postgres").(string),
+		dsn:         utils.GetEnv("DSN", "postgres://root:root@127.0.0.1:5432/postgres?sslmode=disable").(string),
+		BloomFilter: bloom.NewBloomFilter(10000000),
+		Lo:          slog.Default(),
 	}
 
 	// Attach the db
@@ -45,17 +47,22 @@ func InitCore() *Core {
 
 	co.QueryStmts = stmts
 
+	// Load the bloom filter with the shortUrl alias.
+	// Runs in a separate go routine.
+	go co.PreloadBloomFilter()
+
 	return co
 }
 
 // Core struct holds up all the configuration required.
 // It helps the application to run smoothly without fail.
 type Core struct {
-	Port       int
-	Version    string
-	JwtSecret  string
-	QueryStmts *UrlShorterServiceQueries
-	Lo         *slog.Logger
+	Port        int
+	Version     string
+	JwtSecret   string
+	QueryStmts  *UrlShorterServiceQueries
+	Lo          *slog.Logger
+	BloomFilter *bloom.BloomFilter
 
 	dbType string
 	dsn    string
@@ -98,6 +105,28 @@ func (co *Core) prepareSQLQueryStmts() (*UrlShorterServiceQueries, error) {
 	return &queryStmts, err
 }
 
+// PreloadBloomFilter helps to preload the bloom filter with all the existing short urls.
+// This is done to improve the performance of the CustomAliasAvailabilityHandler.
+//
+// caller must run it in separate go routine. As the alias will be huge distributed.
+func (co *Core) PreloadBloomFilter() error {
+	rows, err := co.QueryStmts.GetAllShortUrlAliasQuery.Query()
+	if err != nil {
+		return err
+	}
+
+	for rows.Next() {
+		var shortUrl string
+		err = rows.Scan(&shortUrl)
+		if err != nil {
+			return err
+		}
+		co.Lo.Info("added to preloading bloom filter", "shortUrl", shortUrl)
+		co.BloomFilter.Add(shortUrl)
+	}
+	return nil
+}
+
 // CreateNewShortUrl helps to add a shortURL for the user.
 // Execute and write the data using the database trasactions.
 func (co *Core) CreateNewShortUrlAsTxn(OriginalUrl, shortUrl string, expiryDate time.Time, userID int) error {
@@ -138,6 +167,8 @@ func (co *Core) CreateNewShortUrlAsTxn(OriginalUrl, shortUrl string, expiryDate 
 		return err
 	}
 
-	return tx.Commit()
+	// Add the shortUrl into the bloom filter
+	co.BloomFilter.Add(shortUrl)
 
+	return tx.Commit()
 }

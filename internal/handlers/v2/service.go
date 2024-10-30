@@ -1,4 +1,4 @@
-package v1
+package v2
 
 import (
 	"crypto/md5"
@@ -29,8 +29,7 @@ func SanitizeURLChecks(urlInfo *CreateUShortenUrlDto) error {
 	}
 
 	// Check the URL scheme to be only Http or https
-	if urlScheme.Scheme == "" || !(
-		urlScheme.Scheme == "http" ||
+	if urlScheme.Scheme == "" || !(urlScheme.Scheme == "http" ||
 		urlScheme.Scheme == "https") {
 		return fmt.Errorf("invalid url scheme: %s", urlInfo.OriginalUrl)
 	}

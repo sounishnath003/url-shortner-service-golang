@@ -1,11 +1,11 @@
-package v1
+package v2
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/sounishnath003/url-shortner-service-golang/internal/core"
@@ -32,7 +32,9 @@ func HealthHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// GenerateUrlShortenerHandler (v1) for generating the shorten url from the body provided.
+// GenerateUrlShortenerHandler (v2) for generating the shorten url from the body provided.
+// Uses the database as atomic and safe atomic incremental id generation.
+// Better than the hashing based methods in /api/v1/*
 func GenerateUrlShortenerHandler(w http.ResponseWriter, r *http.Request) {
 	// Grab from body.
 	var url CreateUShortenUrlDto
@@ -51,27 +53,33 @@ func GenerateUrlShortenerHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	encodedUrl, err := GetMd5Hash(&url)
-	if err != nil {
-		handlers.WriteError(w, http.StatusInternalServerError, err)
-		return
-	}
-
-	// Convert these bytes to decimal: 1b3aabf5266b (hexadecimal) → 47770830013755 (decimal).
-	num, err := strconv.ParseInt(encodedUrl, 16, 64)
-	if err != nil {
-		handlers.WriteError(w, http.StatusInternalServerError, err)
-		return
-	}
-
-	shortUrl, err := EncodeToBase62(num)
-	if err != nil {
-		handlers.WriteError(w, http.StatusInternalServerError, err)
-		return
-	}
-
-	// Grab core from context.
+	// Grab the from context.
 	co := r.Context().Value("co").(*core.Core)
+
+	// Check if custom alias provided in body.
+	shortUrl := url.CustomAlias
+
+	// If no shortUrl is defined then generate a unique short url
+	if len(shortUrl) == 0 {
+		var num int
+		// Get the incremental ID (distributed-ACID-compliant) safe
+		// Comes at cost of performance in read heavy environment.
+		co.QueryStmts.GetIncrementalIDQuery.QueryRow().Scan(&num)
+
+		shortUrl, err = EncodeToBase62(int64(num))
+		if err != nil {
+			handlers.WriteError(w, http.StatusInternalServerError, err)
+			return
+		}
+	} else {
+		// Double check the alias
+		_, exists := co.BloomFilter.Exists(shortUrl)
+		if exists {
+			handlers.WriteError(w, http.StatusNotAcceptable, errors.New("alias is already taken. Try another one."))
+			return
+		}
+	}
+
 	// Get the user from context
 	userID := r.Context().Value("userID").(int)
 
