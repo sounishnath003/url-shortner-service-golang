@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -26,9 +27,8 @@ import (
 //	  "email": "john.doe@example.com",
 //	  "password": "password123"
 //	}
-//
-//
 type UserLoginDto struct {
+	ID       int    `json:"-"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
@@ -193,10 +193,10 @@ func SignupHandler(w http.ResponseWriter, r *http.Request) {
 func createJwtToken(co *core.Core, email, password string) (string, error) {
 	var userInDB UserLoginDto
 	// Check the user present in DB
-	co.QueryStmts.GetUserByEmail.QueryRow(email).Scan(&userInDB.Email, &userInDB.Password)
+	co.QueryStmts.GetUserByEmail.QueryRow(email).Scan(&userInDB.ID, &userInDB.Email, &userInDB.Password)
 	co.Lo.Info("checking user exists", "email", email)
 	// If no user found.
-	if userInDB.Email == "" {
+	if userInDB.ID == 0 || userInDB.Email == "" {
 		return "", errors.New("username or password are incorrect")
 	}
 
@@ -206,12 +206,14 @@ func createJwtToken(co *core.Core, email, password string) (string, error) {
 	}
 
 	// Generate the claims for the user
-	claims := jwt.RegisteredClaims{
-		Issuer:    "url-shortner-service",
-		Subject:   userInDB.Email,
-		Audience:  []string{"user", "url-shortner-service"},
-		IssuedAt:  jwt.NewNumericDate(time.Now()),
-		ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(1 * time.Hour))),
+	claims := jwt.MapClaims{
+		"iss":       "url-shortner-service",
+		"sub":       userInDB.Email,
+		"userEmail": userInDB.Email,
+		"userID":    strconv.Itoa(userInDB.ID),
+		"aud":       []string{"user", "url-shortner-service"},
+		"iat":       jwt.NewNumericDate(time.Now()),
+		"exp":       jwt.NewNumericDate(time.Now().Add(time.Duration(1 * time.Hour))),
 	}
 	// Generate a signed claimed token
 	claimTok := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

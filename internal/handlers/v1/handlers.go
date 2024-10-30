@@ -36,11 +36,16 @@ func HealthHandler(w http.ResponseWriter, r *http.Request) {
 func GenerateUrlShortenerV1Handler(w http.ResponseWriter, r *http.Request) {
 	// Grab from body.
 	var url CreateUShortenUrlDto
-	json.NewDecoder(r.Body).Decode(&url)
+	err := json.NewDecoder(r.Body).Decode(&url)
+	if err != nil {
+		handlers.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
 	defer r.Body.Close()
 
 	// Apply sanitize checks on the url.
-	err := SanitizeURLChecks(&url)
+	err = SanitizeURLChecks(&url)
 	if err != nil {
 		handlers.WriteError(w, http.StatusBadRequest, err)
 		return
@@ -65,9 +70,22 @@ func GenerateUrlShortenerV1Handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Grab core from context.
+	co := r.Context().Value("co").(*core.Core)
+	// Get the user from context
+	userID := r.Context().Value("userID").(int)
+
+	// Save it to database.
+	err = co.CreateNewShortUrlAsTxn(url.OriginalUrl, shortUrl, url.ExpiryDate, userID)
+	if err != nil {
+		handlers.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
 	handlers.WriteJson(w, http.StatusOK, map[string]any{
 		"shortUrl": fmt.Sprintf("%s/%s", r.Host, shortUrl),
-		"message":  "short url generated",
+		"message":  "short url has been generated",
+		"expiryBy": url.ExpiryDate,
 	})
 }
 

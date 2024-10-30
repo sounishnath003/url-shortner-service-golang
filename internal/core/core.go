@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"database/sql"
 	"log/slog"
 	"time"
@@ -95,4 +96,48 @@ func (co *Core) prepareSQLQueryStmts() (*UrlShorterServiceQueries, error) {
 	// prepares a given set of Queries and assigns the resulting *sql.Stmt statements to the fields
 	err := goyesql.ScanToStruct(&queryStmts, queries, co.db)
 	return &queryStmts, err
+}
+
+// CreateNewShortUrl helps to add a shortURL for the user.
+// Execute and write the data using the database trasactions.
+func (co *Core) CreateNewShortUrlAsTxn(OriginalUrl, shortUrl string, expiryDate time.Time, userID int) error {
+	// Transaction init.
+	tx, err := co.db.BeginTx(context.Background(), nil)
+	if err != nil {
+		return err
+	}
+	// Rollback aborts the transaction.
+	defer tx.Rollback()
+
+	// Insert the short url into the url_mappings table.
+	_, err = tx.Exec("INSERT INTO url_mappings (original_url, short_url, expiration_at, user_id) VALUES ($1, $2, $3, $4) RETURNING id", OriginalUrl, shortUrl, expiryDate, userID)
+	if err != nil {
+		return err
+	}
+
+	var shortUrlID int
+	// Check if the short url is already present in the database.
+	err = tx.QueryRow(
+		"SELECT id FROM url_mappings WHERE original_url = $1 AND short_url = $2 AND user_id = $3",
+		OriginalUrl,
+		shortUrl,
+		userID,
+	).Scan(&shortUrlID)
+	if err != nil {
+		return err
+	}
+
+	// Insert the shortURL ID and userID into the users_url_mappings table.
+	_, err = tx.Exec(
+		"INSERT INTO users_url_mappings (UrlID, UserID) VALUES ($1, $2)",
+		shortUrlID,
+		userID,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+
 }

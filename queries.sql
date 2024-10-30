@@ -1,7 +1,7 @@
 -- queries.sql
 
 -- name: GetUserByEmail
-SELECT email, password 
+SELECT id, email, password 
 FROM  users WHERE LOWER(email) = LOWER($1);
 
 -- name: CreateNewUser

@@ -15,6 +15,7 @@ var (
 
 // SanitizeURLChecks helps to sanitize the url before the creation
 // shorten urls.
+// This will also fill the default expiry to parameter if the expiry date is not provided.
 func SanitizeURLChecks(urlInfo *CreateUShortenUrlDto) error {
 	// Length check.
 	if len(urlInfo.OriginalUrl) < 5 {

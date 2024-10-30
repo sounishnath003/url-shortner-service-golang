@@ -203,51 +203,57 @@ func (s *Server) AuthGuardMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		token := splits[1]
-		s.co.Lo.Info("auth.middleware checks", "remoteIp", r.RemoteAddr, "isAuthorized", true)
 
-		foundEmail, err := s.ClaimAndVerifyJwtToken(token)
+		userID, foundEmail, err := s.ClaimAndVerifyJwtToken(token)
 		if err != nil {
+			s.co.Lo.Info("auth.middleware checks", "remoteIp", r.RemoteAddr, "isAuthorized", false)
 			handlers.WriteError(w, http.StatusUnauthorized, err)
 			return
 		}
+		s.co.Lo.Info("auth.middleware checks", "remoteIp", r.RemoteAddr, "isAuthorized", true)
 		// Set the request context with user
-		ctx := context.WithValue(r.Context(), "userEmail", foundEmail)
+		ctx := context.WithValue(r.Context(), "userID", userID)
+		ctx = context.WithValue(ctx, "userEmail", foundEmail)
+
 		s.co.Lo.Info("checks completed auth middleware guard")
 		next.ServeHTTP(w, r.WithContext(ctx))
 	}
 }
 
 // ClaimAndVerifyJwtToken helps to verify the JWT token.
-// It checks the token signature and expiry time.
-// If the token is valid, it returns true.
-// If the token is invalid, it returns false.
-func (s *Server) ClaimAndVerifyJwtToken(token string) (string, error) {
+// It parses the token and checks if it is valid.
+// If the token is valid, it returns the user's email address.
+// If the token is invalid, it returns an error.
+//
+// Return userID, userEmail, error
+func (s *Server) ClaimAndVerifyJwtToken(token string) (int, string, error) {
 	// Parse the JWT token.
 	parsedToken, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
 		return []byte(s.co.JwtSecret), nil
 	})
 
 	if err != nil {
-		return "", err
+		return 0, "", err
 	}
 
 	// Check if the token is valid.
 	if !parsedToken.Valid {
-		return "", errors.New("Unauthorized")
+		return 0, "", errors.New("Unauthorized")
 	}
 
 	// Check in database with the parsed token
 	email, err := parsedToken.Claims.GetSubject()
 	if err != nil {
-		return "", errors.New("Unauthorized")
+		return 0, "", errors.New("Unauthorized")
 	}
+	userID := 0
 	foundEmail := ""
 	foundPass := ""
-	s.co.QueryStmts.GetUserByEmail.QueryRow(email).Scan(&foundEmail, &foundPass)
+	s.co.QueryStmts.GetUserByEmail.QueryRow(email).Scan(&userID, &foundEmail, &foundPass)
 	if foundEmail == "" || foundPass == "" {
-		return "", errors.New("Unauthorized")
+		return 0, "", errors.New("Unauthorized")
 	}
 	s.co.Lo.Info("user has been verified and authorized", "foundEmail", foundEmail)
 
-	return foundEmail, nil
+	return userID, foundEmail, nil
 }
