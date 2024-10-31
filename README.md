@@ -167,29 +167,19 @@ Note: If the short url does not exists it throws `404-Not Found` Http error.
 
 The additional feature and tech stack are choseen carefully, to **run millions of urls** redirection easily.
 
-To extend the same framework to trillion or more -> 
-* load balancers
-* distributed caching (redis, memcached)
-* proxies 
-* data base shards - (postgres, MongoDB)
-* distributed ID
-* TOTP 
+- **Load Balancer**: Distributes incoming requests across multiple application servers.
 
-etc needs to be more considered.
+- **Application Servers**: Handles incoming requests for shortening URLs and redirecting users.
 
-Load Balancer: Distributes incoming requests across multiple application servers.
+- **URL Generation Service**: Generates short URLs, handles custom aliases, and manages link expirations.
 
-Application Servers: Handles incoming requests for shortening URLs and redirecting users.
+- **Redirection Service**: Redirects the users to the original URL.
 
-URL Generation Service: Generates short URLs, handles custom aliases, and manages link expirations.
+- **Database**: Stores mappings between short URLs and long URLs.
 
-Redirection Service: Redirects the users to the original URL.
+- **Cache**: Stores frequently accessed URL mappings for faster retrieval.
 
-Database: Stores mappings between short URLs and long URLs.
-
-Cache: Stores frequently accessed URL mappings for faster retrieval.
-
-Analytics Service (optional): Tracks usage statistics like the number of clicks, geographic location, etc.
+- **Analytics Service (optional)**: Tracks usage statistics like the number of clicks, geographic location, etc.
 
 ### Database ERD Diagram:
 
