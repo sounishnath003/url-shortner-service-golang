@@ -36,5 +36,19 @@ services:
     ports:
       - 8080:80
 
+  url_shortner_service:
+    image: url_shortner_service:latest
+    restart: always
+    ports:
+      - 3000:3000
+    expose:
+      - 3000
+    environment:
+      - DSN=postgres://root:root@postgres:5432/postgres?sslmode=disable
+      - REDIS_CLIENT_ADDR=redis:6379
+    depends_on:
+      - postgres
+      - redis
+
 volumes:
   postgres-data:

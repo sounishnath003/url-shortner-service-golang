@@ -16,6 +16,7 @@ FROM scratch
 WORKDIR /app
 
 COPY --from=builder /app/bin/url_shortner_service .
+COPY queries.sql /app
 
 EXPOSE 3000
 
